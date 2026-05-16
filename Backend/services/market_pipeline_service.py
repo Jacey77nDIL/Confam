@@ -1,4 +1,4 @@
-"""Market pricing: rule-based SUBMIT first, then ML ``/parse`` for QUERY and routing."""
+"""Market pricing: rule-based SUBMIT first, then ML ``/process`` for user-facing replies."""
 
 from __future__ import annotations
 
@@ -236,42 +236,13 @@ def handle_message(
                 "(e.g. rice 900 in Lekki) so I can log it."
             )
 
-    # --- 2) ML /parse for QUERY, GREETING, UNKNOWN; hybrid submit ---
+    # --- 2) ML /process — full pipeline reply (NLU + price engine + response gen) ---
+    uid = str(user.id) if user else "anonymous"
     try:
-        parsed = ml_parser_service.parse_market_message(normalized)
+        return ml_parser_service.process_market_message(normalized, user_id=uid)
     except MLParserError:
-        logger.exception("ML /parse failed")
+        logger.exception("ML /process failed")
         return _ML_DOWN_REPLY
-
-    if parsed.intent == "SUBMIT_PRICE":
-        extracted = submit_price_detector.extract_submit_price_data(normalized, ctx)
-        if extracted and extracted.get("price") is not None:
-            saved = _try_save_extraction(
-                db,
-                user,
-                raw_message=raw,
-                normalized_message=normalized,
-                data=extracted,
-                source=source,
-                extracted_by="hybrid",
-            )
-            if saved:
-                return saved
-        return (
-            "Tell me the product, roughly where, and the price in naira "
-            "so I can record it (I won't trust a guess from the model alone)."
-        )
-
-    intent = (parsed.intent or "UNKNOWN").upper()
-    if intent == "GREETING":
-        return _GREETING_REPLY
-    if intent == "UNKNOWN":
-        if _low_confidence(parsed, require_product=True):
-            return _clarify_product_location()
-        return _UNKNOWN_REPLY
-    if intent == "QUERY":
-        return _handle_query(db, parsed)
-    return _UNKNOWN_REPLY
 
 
 def handle_identified_product(
