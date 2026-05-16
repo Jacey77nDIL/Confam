@@ -33,7 +33,8 @@ _VALID_AUDIO_EXT = frozenset(
 
 # MediaRecorder can sometimes upload a near-empty blob if the user taps record quickly
 # (or permissions fail). Catch this before calling the transcription API.
-_MIN_AUDIO_BYTES = int(os.getenv("MIN_AUDIO_BYTES", "2048"))
+# Opus/webm clips can be small; 2048 was rejecting valid ~1s mobile recordings.
+_MIN_AUDIO_BYTES = int(os.getenv("MIN_AUDIO_BYTES", "512"))
 
 # Optional Whisper hint: improves code-switching (Pidgin, names, ₦) when the API supports `prompt`.
 _TRANSCRIPTION_PROMPT = os.getenv(

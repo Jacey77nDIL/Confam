@@ -411,6 +411,17 @@ def _run_voice_job(
                 mime=uf.mime_type,
                 path_for_extension=Path(uf.storage_path),
             )
+        except ValueError as exc:
+            _set_message_content(db, assistant_message_id, str(exc))
+            return
+        except RuntimeError:
+            logger.exception("Voice transcription unavailable (background)")
+            _set_message_content(
+                db,
+                assistant_message_id,
+                "Voice transcription is temporarily unavailable. Try again shortly.",
+            )
+            return
         except Exception:  # noqa: BLE001
             logger.exception("Voice transcription failed in background")
             _set_message_content(
@@ -850,10 +861,10 @@ def handle_voice_turn(db: Session, user: User, session_id: int, *, file_id: int)
             status_code=status.HTTP_404_NOT_FOUND,
             detail="That upload is no longer available. Please try again.",
         ) from None
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="That audio file could not be processed. Try a shorter clip.",
+            detail=str(exc) or "That audio file could not be processed. Try recording again.",
         ) from None
     except RuntimeError:
         raise HTTPException(
